@@ -122,6 +122,61 @@ npm run dev
 npm start
 
 
+git init
+git add .
+git commit -m "Initial CampusGenius backend"
+git remote add origin https://github.com/YOUR_USERNAME/campusgenius-backend.git
+git push -u origin main
+```
+
+**Step 2 — MongoDB Atlas (Free Cloud DB)**
+1. Go to [mongodb.com/cloud/atlas](https://mongodb.com/cloud/atlas) → Create free cluster
+2. Create a database user (username + password)
+3. Under Network Access → Add IP `0.0.0.0/0` (allow all)
+4. Get your connection string: `mongodb+srv://user:pass@cluster.mongodb.net/campusgenius`
+
+**Step 3 — Deploy on Render**
+1. Go to [render.com](https://render.com) → New → **Web Service**
+2. Connect your GitHub repo
+3. Configure:
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+   - **Environment:** Node
+4. Add Environment Variables:
+   - `MONGO_URI` → your Atlas connection string
+   - `JWT_SECRET` → a long random string
+   - `NODE_ENV` → `production`
+5. Click **Deploy** — you get a live URL like `https://campusgenius-api.onrender.com`
+
+---
+
+## Quick API Reference
+
+| Method | Endpoint | Auth? | Description |
+|--------|----------|-------|-------------|
+| POST | `/api/auth/signup` | ❌ | Register |
+| POST | `/api/auth/login` | ❌ | Login → get token |
+| GET | `/api/auth/me` | ✅ | My profile |
+| GET | `/api/notes` | ✅ | All my notes |
+| POST | `/api/notes` | ✅ | Create note |
+| DELETE | `/api/notes/:id` | ✅ | Delete note |
+| GET | `/api/attendance` | ✅ | All subjects |
+| POST | `/api/attendance` | ✅ | Add subject |
+| PUT | `/api/attendance/:id` | ✅ | Update % |
+| GET | `/api/assignments/upcoming` | ✅ | Upcoming tasks |
+| POST | `/api/assignments` | ✅ | Add assignment |
+| PUT | `/api/assignments/:id/complete` | ✅ | Mark done |
+| GET | `/api/finance` | ✅ | All expenses + summary |
+| POST | `/api/finance` | ✅ | Add expense |
+| GET | `/api/finance/summary` | ✅ | Monthly breakdown |
+| POST | `/api/planner/generate` | ✅ | Generate study plan |
+| POST | `/api/planner/tips` | ✅ | Get subject tips |
+
+**Auth header format for protected routes:**
+```
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+
 
 
 
