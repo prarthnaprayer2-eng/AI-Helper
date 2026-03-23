@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Login - AI College Helper</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Initialize namespace -->
+<script>
+  window.utils = { auth: {} };
+  window.pages = {};
+  
+  // Set light mode for login page
+  document.body.className = 'light';
+</script>
+
+<!-- Auth Utilities -->
+<script type="text/babel">
+  const VALID_USERS = [
+    { email: 'student@example.com', password: 'password123' },
+    { email: 'aryan@college.com', password: 'aryan123' },
+    { email: 'demo@test.com', password: 'demo123' }
+  ];
+
+  window.utils.auth.isAuthenticated = function() {
+    const auth = localStorage.getItem('auth');
+    return auth && JSON.parse(auth).isLoggedIn === true;
+  };
+
+  window.utils.auth.getCurrentUser = function() {
+    const auth = localStorage.getItem('auth');
+    if (auth) {
+      const parsed = JSON.parse(auth);
+      if (parsed.isLoggedIn) {
+        return parsed.user;
+      }
+    }
+    return null;
+  };
+
+  window.utils.auth.loginUser = function(email, password) {
+    const user = VALID_USERS.find(u => u.email === email && u.password === password);
+    
+    if (user) {
+      const userData = {
+        isLoggedIn: true,
+        user: {
+          email: user.email,
+          name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
+          loginTime: new Date().toISOString()
+        }
+      };
+      localStorage.setItem('auth', JSON.stringify(userData));
+      return { success: true, user: userData.user };
+    }
+    
+    return { success: false, error: 'Invalid email or password' };
+  };
+
+  window.utils.auth.logoutUser = function() {
+    localStorage.removeItem('auth');
+    return true;
+  };
+</script>
+
+<!-- Login Component -->
+<script type="text/babel">
+  const { useState } = React;
+  const { loginUser } = window.utils.auth;
+
+  window.pages.Login = function({ onLoginSuccess }) {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      setError('');
+      setLoading(true);
+
+      setTimeout(() => {
+        if (!email || !password) {
+          setError('Please fill in all fields');
+          setLoading(false);
+          return;
+        }
+
+        const result = loginUser(email, password);
+        
+        if (result.success) {
+          onLoginSuccess(result.user);
+        } else {
+          setError(result.error);
+          setPassword('');
+        }
+        
+        setLoading(false);
+      }, 500);
+    };
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        background: 'linear-gradient(135deg, #f4f5fb 0%, #eef0f8 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        fontFamily: 'var(--font)',
+        zIndex: 9999
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '420px'
+        }}>
+          {/* Card Container */}
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)',
+            overflow: 'hidden',
+            border: '1px solid rgba(0, 0, 0, 0.05)'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              padding: '40px 32px 32px',
+              textAlign: 'center',
+              color: 'white'
+            }}>
+              <div style={{
+                fontSize: '56px',
+                marginBottom: '16px'
+              }}>🎓</div>
+              <h1 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '28px',
+                fontWeight: '800',
+                margin: '0 0 8px 0'
+              }}>AI College Helper</h1>
+              <p style={{
+                fontSize: '14px',
+                margin: '0',
+                opacity: 0.9
+              }}>Welcome back! Please log in</p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} style={{
+              padding: '36px 32px'
+            }}>
+              {/* Email Input */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#0d0f14',
+                  marginBottom: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}>Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="your@email.com"
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    border: '1.5px solid #e4e7f5',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontFamily: 'var(--font)',
+                    background: '#f9fafb',
+                    color: '#0d0f14',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.3s ease',
+                    opacity: loading ? 0.6 : 1,
+                    cursor: loading ? 'not-allowed' : 'auto',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.background = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e4e7f5';
+                    e.target.style.background = '#f9fafb';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              {/* Password Input */}
+              <div style={{ marginBottom: '28px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#0d0f14',
+                  marginBottom: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="••••••••"
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    border: '1.5px solid #e4e7f5',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontFamily: 'var(--font)',
+                    background: '#f9fafb',
+                    color: '#0d0f14',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.3s ease',
+                    opacity: loading ? 0.6 : 1,
+                    cursor: loading ? 'not-allowed' : 'auto',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.background = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e4e7f5';
+                    e.target.style.background = '#f9fafb';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#dc2626',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  marginBottom: '20px',
+                  animation: 'slideIn 0.3s ease'
+                }}>
+                  <span style={{ fontWeight: '500' }}>⚠ {error}</span>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: loading ? '#cbd5e1' : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  fontFamily: 'var(--font)',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  opacity: loading ? 0.8 : 1,
+                  boxShadow: loading ? 'none' : '0 4px 14px rgba(59, 130, 246, 0.3)',
+                  transform: loading ? 'scale(1)' : 'scale(1)'
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 14px rgba(59, 130, 246, 0.3)';
+                  }
+                }}
+              >
+                {loading ? (
+                  <span>
+                    <span style={{ animation: 'pulse 1.5s infinite' }}>⏳</span> Logging in...
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Demo Credentials Card */}
+          <div style={{
+            marginTop: '24px',
+            background: 'white',
+            border: '1.5px solid #e4e7f5',
+            borderRadius: '12px',
+            padding: '18px 20px',
+            fontSize: '13px',
+            color: '#0d0f14'
+          }}>
+            <div style={{ 
+              fontWeight: '700', 
+              marginBottom: '12px', 
+              color: '#3b82f6',
+              fontSize: '12px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}>✨ Demo Credentials</div>
+            <div style={{ lineHeight: '1.8', fontSize: '13px' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <span style={{ color: '#6b7280' }}>Email: </span>
+                <span style={{ fontFamily: 'monospace', fontWeight: '500', color: '#0d0f14' }}>aryan@college.com</span>
+              </div>
+              <div>
+                <span style={{ color: '#6b7280' }}>Password: </span>
+                <span style={{ fontFamily: 'monospace', fontWeight: '500', color: '#0d0f14' }}>aryan123</span>
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '12px', color: '#9ca3af' }}>
+                Also try: student@example.com / password123
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            marginTop: '24px',
+            textAlign: 'center',
+            fontSize: '12px',
+            color: '#9ca3af'
+          }}>
+            <p style={{ margin: '0' }}>🔒 Client-side authentication for demo purposes</p>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
+      </div>
+    );
+  };
+</script>
+
+<!-- Initialize and Render -->
+<script type="text/babel">
+  const { isAuthenticated } = window.utils.auth;
+  const { Login } = window.pages;
+
+  // If already logged in, redirect to main app
+  if (isAuthenticated()) {
+    window.location.href = './index.html';
+  }
+
+  // Render login component
+  ReactDOM.createRoot(document.getElementById('root')).render(<Login onLoginSuccess={(user) => {
+    window.location.href = './index.html';
+  }} />);
+</script>
+
+</body>
+</html>

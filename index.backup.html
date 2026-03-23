@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI College Helper</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="root"></div>
+
+<!-- All modular scripts loaded in order -->
+<script>
+  // Namespace for utilities and components
+  window.APP = {
+    utils: {},
+    components: {},
+    pages: {},
+  };
+</script>
+
+<!-- Date Helpers -->
+<script type="text/babel">
+  const today = new Date();
+  window.APP.utils.fmt = d => new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short' });
+  window.APP.utils.daysUntil = d => Math.ceil((new Date(d) - today) / 86400000);
+  window.APP.utils.getToday = () => today;
+  window.APP.utils.formatDateLong = (date, options = {}) => {
+    return new Date(date).toLocaleDateString('en-IN', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      ...options
+    });
+  };
+</script>
+
+<!-- AI Utilities -->
+<script type="text/babel">
+  window.APP.utils.callAI = async function(prompt, systemPrompt = "You are a helpful AI assistant for college students. Be concise and practical.") {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      const data = await res.json();
+      return data.content?.[0]?.text || "No response received.";
+    } catch (e) {
+      return "AI unavailable. Please check your connection.";
+    }
+  };
+</script>
+
+<!-- Initial Data -->
+<script type="text/babel">
+  window.APP.utils.initAssignments = [
+    { id:1, name:"Data Structures Assignment 3", subject:"CS101", deadline:"2025-07-08", priority:"High", done:false },
+    { id:2, name:"Economics Essay – Market Failures", subject:"ECO201", deadline:"2025-07-12", priority:"Medium", done:false },
+    { id:3, name:"Physics Lab Report", subject:"PHY102", deadline:"2025-07-05", priority:"High", done:true },
+    { id:4, name:"Math Problem Set 5", subject:"MAT201", deadline:"2025-07-15", priority:"Low", done:false },
+  ];
+  window.APP.utils.initAttendance = [
+    { id:1, subject:"Data Structures", present:38, total:45 },
+    { id:2, subject:"Economics", present:28, total:40 },
+    { id:3, subject:"Physics", present:35, total:38 },
+    { id:4, subject:"Mathematics", present:42, total:44 },
+    { id:5, subject:"English", present:18, total:30 },
+  ];
+  window.APP.utils.initSchedule = [
+    { time:"07:30", label:"Morning Run", color:"var(--green)", type:"personal" },
+    { time:"09:00", label:"Data Structures", color:"var(--accent)", type:"class", room:"Room 201" },
+    { time:"11:00", label:"Economics Lecture", color:"var(--blue)", type:"class", room:"Auditorium A" },
+    { time:"13:00", label:"Lunch Break", color:"var(--amber)", type:"personal" },
+    { time:"14:30", label:"Physics Lab", color:"var(--pink)", type:"class", room:"Lab 3" },
+    { time:"17:00", label:"Self Study", color:"var(--teal)", type:"study" },
+    { time:"20:00", label:"Assignment Work", color:"var(--accent)", type:"study" },
+  ];
+  window.APP.utils.initNotes = [
+    { id:1, title:"Sorting Algorithms – Big O", subject:"CS101", content:"Bubble Sort: O(n²) worst case\nMerge Sort: O(n log n) always\nQuick Sort: O(n log n) average, O(n²) worst\nHeap Sort: O(n log n) always\n\nKey insight: Merge sort is stable, quick sort is in-place.", tags:["algorithms","exams"], date:"Jun 28" },
+    { id:2, title:"Demand & Supply Curves", subject:"ECO201", content:"Law of Demand: As price increases, quantity demanded decreases (inverse relationship).\nLaw of Supply: As price increases, quantity supplied increases.\n\nEquilibrium: Point where supply meets demand.", tags:["economics","basics"], date:"Jun 27" },
+    { id:3, title:"Newton's Laws Summary", subject:"PHY102", content:"1st Law: Object at rest stays at rest unless acted upon by external force.\n2nd Law: F = ma\n3rd Law: Every action has equal and opposite reaction.", tags:["physics","newton"], date:"Jun 25" },
+  ];
+  window.APP.utils.initExpenses = [
+    { id:1, name:"Canteen Lunch", cat:"Food", amount:120, icon:"🍱", color:"var(--amber-bg)", date:"Today" },
+    { id:2, name:"Metro Card Recharge", cat:"Travel", amount:200, icon:"🚇", color:"var(--blue-bg)", date:"Yesterday" },
+    { id:3, name:"Textbook – Algorithms", cat:"Education", amount:450, icon:"📗", color:"var(--green-bg)", date:"Jun 30" },
+    { id:4, name:"Movie – Weekend", cat:"Entertainment", amount:350, icon:"🎬", color:"var(--pink-bg)", date:"Jun 29" },
+    { id:5, name:"Groceries", cat:"Food", amount:580, icon:"🛒", color:"var(--amber-bg)", date:"Jun 28" },
+  ];
+  window.APP.utils.NAV = [
+    {id:'dashboard',icon:'⊞',label:'Dashboard'},
+    {id:'notes',icon:'📚',label:'Notes'},
+    {id:'attendance',icon:'📊',label:'Attendance'},
+    {id:'assignments',icon:'⏰',label:'Assignments'},
+    {id:'planner',icon:'🤖',label:'AI Planner'},
+    {id:'schedule',icon:'🗓️',label:'Schedule'},
+    {id:'calendar',icon:'📅',label:'Calendar'},
+    {id:'finance',icon:'💰',label:'Finance'},
+    {id:'notifications',icon:'🔔',label:'Notifications'},
+  ];
+  window.APP.utils.PAGE_TITLES = {
+    dashboard:'Dashboard',
+    notes:'Smart Notes',
+    attendance:'Attendance Tracker',
+    assignments:'Assignments',
+    planner:'AI Study Planner',
+    schedule:'Daily Schedule',
+    calendar:'Monthly Calendar',
+    finance:'Finance Tracker',
+    notifications:'Notifications'
+  };
+</script>
+
+<!-- Reusable Components -->
+<script type="text/babel">
+  const { useState, useEffect, useRef, useCallback } = React;
+  
+  window.APP.components.LoadingDots = function() {
+    return <div className="loading-dots"><span/><span/><span/></div>;
+  };
+
+  window.APP.components.ProgressRing = function({ pct, size=100, stroke=8, color="#6c63ff" }) {
+    const r = (size - stroke) / 2;
+    const circ = 2 * Math.PI * r;
+    const dash = (pct / 100) * circ;
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{transform:'rotate(-90deg)'}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg3)" strokeWidth={stroke}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
+      </svg>
+    );
+  };
+</script>
+
+<!-- Page Components (abbreviated for space - full versions in separate script blocks) -->
+
+// ───────────── DATA HELPERS ─────────────
+const today = new Date();
+const fmt = d => new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short' });
+const daysUntil = d => Math.ceil((new Date(d) - today) / 86400000);
+
+// ───────────── AI CALL ─────────────
+async function callAI(prompt, systemPrompt = "You are a helpful AI assistant for college students. Be concise and practical.") {
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await res.json();
+    return data.content?.[0]?.text || "No response received.";
+  } catch (e) {
+    return "AI unavailable. Please check your connection.";
+  }
+}
+
+// ───────────── INITIAL DATA ─────────────
+const initAssignments = [
+  { id:1, name:"Data Structures Assignment 3", subject:"CS101", deadline:"2025-07-08", priority:"High", done:false },
+  { id:2, name:"Economics Essay – Market Failures", subject:"ECO201", deadline:"2025-07-12", priority:"Medium", done:false },
+  { id:3, name:"Physics Lab Report", subject:"PHY102", deadline:"2025-07-05", priority:"High", done:true },
+  { id:4, name:"Math Problem Set 5", subject:"MAT201", deadline:"2025-07-15", priority:"Low", done:false },
+];
+const initAttendance = [
+  { id:1, subject:"Data Structures", present:38, total:45 },
+  { id:2, subject:"Economics", present:28, total:40 },
+  { id:3, subject:"Physics", present:35, total:38 },
+  { id:4, subject:"Mathematics", present:42, total:44 },
+  { id:5, subject:"English", present:18, total:30 },
+];
+const initSchedule = [
+  { time:"07:30", label:"Morning Run", color:"var(--green)", type:"personal" },
+  { time:"09:00", label:"Data Structures", color:"var(--accent)", type:"class", room:"Room 201" },
+  { time:"11:00", label:"Economics Lecture", color:"var(--blue)", type:"class", room:"Auditorium A" },
+  { time:"13:00", label:"Lunch Break", color:"var(--amber)", type:"personal" },
+  { time:"14:30", label:"Physics Lab", color:"var(--pink)", type:"class", room:"Lab 3" },
+  { time:"17:00", label:"Self Study", color:"var(--teal)", type:"study" },
+  { time:"20:00", label:"Assignment Work", color:"var(--accent)", type:"study" },
+];
+const initNotes = [
+  { id:1, title:"Sorting Algorithms – Big O", subject:"CS101", content:"Bubble Sort: O(n²) worst case\nMerge Sort: O(n log n) always\nQuick Sort: O(n log n) average, O(n²) worst\nHeap Sort: O(n log n) always\n\nKey insight: Merge sort is stable, quick sort is in-place.", tags:["algorithms","exams"], date:"Jun 28" },
+  { id:2, title:"Demand & Supply Curves", subject:"ECO201", content:"Law of Demand: As price increases, quantity demanded decreases (inverse relationship).\nLaw of Supply: As price increases, quantity supplied increases.\n\nEquilibrium: Point where supply meets demand.", tags:["economics","basics"], date:"Jun 27" },
+  { id:3, title:"Newton's Laws Summary", subject:"PHY102", content:"1st Law: Object at rest stays at rest unless acted upon by external force.\n2nd Law: F = ma\n3rd Law: Every action has equal and opposite reaction.", tags:["physics","newton"], date:"Jun 25" },
+];
+const initExpenses = [
+  { id:1, name:"Canteen Lunch", cat:"Food", amount:120, icon:"🍱", color:"var(--amber-bg)", date:"Today" },
+  { id:2, name:"Metro Card Recharge", cat:"Travel", amount:200, icon:"🚇", color:"var(--blue-bg)", date:"Yesterday" },
+  { id:3, name:"Textbook – Algorithms", cat:"Education", amount:450, icon:"📗", color:"var(--green-bg)", date:"Jun 30" },
+  { id:4, name:"Movie – Weekend", cat:"Entertainment", amount:350, icon:"🎬", color:"var(--pink-bg)", date:"Jun 29" },
+  { id:5, name:"Groceries", cat:"Food", amount:580, icon:"🛒", color:"var(--amber-bg)", date:"Jun 28" },
+];
+
+// ───────────── COMPONENTS ─────────────
+function LoadingDots() {
+  return <div className="loading-dots"><span/><span/><span/></div>;
+}
+
+function ProgressRing({ pct, size=100, stroke=8, color="#6c63ff" }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{transform:'rotate(-90deg)'}}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--bg3)" strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+// ──── DASHBOARD ────
+function Dashboard({ assignments, attendance, notifications }) {
+  const pending = assignments.filter(a => !a.done).length;
+  const overallAtt = Math.round(attendance.reduce((s,a) => s + a.present/a.total, 0) / attendance.length * 100);
+  const lowAtt = attendance.filter(a => a.present/a.total * 100 < 75).length;
+  const streak = 7;
+
+  const [aiTip, setAiTip] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    setAiLoading(true);
+    callAI(
+      `Give me 2–3 short, actionable study tips for today. I have ${pending} pending assignments, ${lowAtt} subject(s) with low attendance, and a 7-day study streak. Be very concise, use bullet points.`,
+      "You are an AI academic advisor. Give short, encouraging and specific advice."
+    ).then(r => { setAiTip(r); setAiLoading(false); });
+  }, []);
+
+  return (
+    <div className="fade-in">
+      <div style={{marginBottom:24}}>
+        <p style={{color:'var(--text2)',fontSize:14}}>Good morning, Aryan 👋 — {today.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:800,marginTop:4}}>Your Academic Dashboard</h2>
+      </div>
+
+      <div className="grid-4" style={{marginBottom:20}}>
+        {[
+          {icon:'📝', label:'Pending Tasks', value:pending, sub:'assignments due', color:'var(--amber-bg)', iconColor:'var(--amber)'},
+          {icon:'📊', label:'Avg Attendance', value:`${overallAtt}%`, sub:`${lowAtt} subjects at risk`, color:'var(--blue-bg)', iconColor:'var(--blue)'},
+          {icon:'🔥', label:'Study Streak', value:`${streak}d`, sub:'keep it going!', color:'var(--pink-bg)', iconColor:'var(--pink)'},
+          {icon:'🏆', label:'Productivity', value:'78', sub:'score this week', color:'var(--green-bg)', iconColor:'var(--green)'},
+        ].map((s,i) => (
+          <div key={i} className="stat-card">
+            <div className="stat-icon" style={{background:s.color}}>
+              <span>{s.icon}</span>
+            </div>
+            <div>
+              <div className="stat-label">{s.label}</div>
+              <div className="stat-value" style={{color:s.iconColor}}>{s.value}</div>
+              <div className="stat-sub">{s.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-2" style={{marginBottom:20}}>
+        {/* Today's AI Tip */}
+        <div className="card">
+          <div className="card-title">✦ AI Insights for Today</div>
+          {aiLoading ? <LoadingDots/> : (
+            <div className="ai-box">
+              <div className="ai-label">Personalized for you</div>
+              <div className="ai-text">{aiTip}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Upcoming Deadlines */}
+        <div className="card">
+          <div className="card-title">⏰ Upcoming Deadlines</div>
+          {assignments.filter(a=>!a.done).slice(0,4).map(a => {
+            const d = daysUntil(a.deadline);
+            const col = d<=2?'var(--red)':d<=5?'var(--amber)':'var(--green)';
+            return (
+              <div key={a.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13.5,fontWeight:500}}>{a.name}</div>
+                  <div style={{fontSize:11,color:'var(--text2)'}}>{a.subject}</div>
+                </div>
+                <div style={{fontSize:12,fontWeight:600,color:col}}>{d<=0?'Today!':d===1?'Tomorrow':`${d}d`}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid-2">
+        {/* Streak Calendar */}
+        <div className="card">
+          <div className="card-title">🔥 Weekly Streak</div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:16}}>
+            {['M','T','W','T','F','S','S'].map((d,i) => (
+              <div key={i} className="streak-day" style={{background:i<5?'var(--accent)':i===5?'var(--accent)':'var(--bg3)',color:i<6?'#fff':'var(--text3)'}}>
+                {d}
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:13,color:'var(--text2)'}}>🎯 7-day streak! You're in the top 15% of students this week.</div>
+          <div style={{marginTop:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--text2)',marginBottom:6}}>
+              <span>Weekly Goal</span><span>78 / 100 pts</span>
+            </div>
+            <div className="progress-wrap">
+              <div className="progress-bar" style={{width:'78%',background:'linear-gradient(90deg,var(--accent),var(--pink))'}}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Attendance Summary */}
+        <div className="card">
+          <div className="card-title">📊 Attendance Overview</div>
+          {attendance.slice(0,4).map(a => {
+            const pct = Math.round(a.present/a.total*100);
+            const col = pct<75?'var(--red)':pct<85?'var(--amber)':'var(--green)';
+            return (
+              <div key={a.id} style={{marginBottom:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                  <span style={{color:'var(--text2)'}}>{a.subject}</span>
+                  <span style={{fontWeight:600,color:col}}>{pct}%</span>
+                </div>
+                <div className="progress-wrap">
+                  <div className="progress-bar" style={{width:`${pct}%`,background:col}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──── NOTES ────
+function Notes() {
+  const [notes, setNotes] = useState(initNotes);
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [aiSummary, setAiSummary] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+  const [newNote, setNewNote] = useState({title:'',subject:'',content:'',tags:''});
+
+  const filtered = notes.filter(n =>
+    n.title.toLowerCase().includes(search.toLowerCase()) ||
+    n.subject.toLowerCase().includes(search.toLowerCase()) ||
+    n.tags.some(t => t.includes(search.toLowerCase()))
+  );
+
+  const summarize = async (note) => {
+    setSelected(note); setAiSummary(""); setAiLoading(true);
+    const r = await callAI(
+      `Summarize these notes and list 3–5 key points:\n\n${note.content}`,
+      "You are a study assistant. Summarize concisely with bullet points."
+    );
+    setAiSummary(r); setAiLoading(false);
+  };
+
+  const addNote = () => {
+    if (!newNote.title || !newNote.content) return;
+    setNotes([{id:Date.now(), ...newNote, tags:newNote.tags.split(',').map(t=>t.trim()).filter(Boolean), date:'Today'}, ...notes]);
+    setNewNote({title:'',subject:'',content:'',tags:''}); setShowModal(false);
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700}}>📚 Smart Notes</h2>
+        <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ New Note</button>
+      </div>
+      <div style={{marginBottom:16}}>
+        <input className="input" placeholder="🔍 Search notes by title, subject, or tag…" value={search} onChange={e=>setSearch(e.target.value)}/>
+      </div>
+
+      {selected && (
+        <div className="card" style={{marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+            <div style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:16}}>{selected.title}</div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{setSelected(null);setAiSummary('');}}>✕ Close</button>
+          </div>
+          <div style={{fontSize:13,color:'var(--text2)',lineHeight:1.7,marginBottom:16,whiteSpace:'pre-wrap'}}>{selected.content}</div>
+          <div className="ai-box">
+            <div className="ai-label">AI Summary</div>
+            {aiLoading ? <LoadingDots/> : <div className="ai-text">{aiSummary}</div>}
+          </div>
+        </div>
+      )}
+
+      <div className="grid-3">
+        {filtered.map(note => (
+          <div key={note.id} className="note-card" onClick={()=>summarize(note)}>
+            <div className="note-title">{note.title}</div>
+            <div style={{marginBottom:8}}><span className="badge badge-purple">{note.subject}</span></div>
+            <div className="note-preview">{note.content}</div>
+            <div className="note-footer">
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {note.tags.map(t => <span key={t} className="badge badge-blue">{t}</span>)}
+              </div>
+              <span style={{fontSize:11,color:'var(--text3)'}}>{note.date}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowModal(false)}}>
+          <div className="modal">
+            <div className="modal-title">📝 New Note</div>
+            {[{label:'Title',key:'title',placeholder:'Note title…'},{label:'Subject',key:'subject',placeholder:'CS101, ECO201…'},{label:'Tags (comma-separated)',key:'tags',placeholder:'exam, formulas, important'}].map(f => (
+              <div key={f.key} className="form-group">
+                <label className="label">{f.label}</label>
+                <input className="input" placeholder={f.placeholder} value={newNote[f.key]} onChange={e=>setNewNote({...newNote,[f.key]:e.target.value})}/>
+              </div>
+            ))}
+            <div className="form-group">
+              <label className="label">Content</label>
+              <textarea className="input" rows={6} placeholder="Write your notes here…" value={newNote.content} onChange={e=>setNewNote({...newNote,content:e.target.value})} style={{resize:'vertical'}}/>
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={addNote}>Save Note</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── ATTENDANCE ────
+function Attendance() {
+  const [subjects, setSubjects] = useState(initAttendance);
+  const [showModal, setShowModal] = useState(false);
+  const [newSub, setNewSub] = useState({subject:'',present:0,total:0});
+  const [aiAdvice, setAiAdvice] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+
+  const low = subjects.filter(s => s.present/s.total*100 < 75);
+
+  useEffect(() => {
+    if (low.length > 0) {
+      setAiLoading(true);
+      callAI(
+        `I have low attendance in: ${low.map(s=>`${s.subject} (${Math.round(s.present/s.total*100)}%)`).join(', ')}. Give me specific advice on how to improve attendance and what to do about missed classes.`,
+        "You are an academic advisor. Be practical and encouraging."
+      ).then(r => { setAiAdvice(r); setAiLoading(false); });
+    }
+  }, []);
+
+  const mark = (id, type) => {
+    setSubjects(subjects.map(s => s.id===id ? {
+      ...s,
+      present: type==='present' ? s.present+1 : s.present,
+      total: s.total+1
+    } : s));
+  };
+
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const existing = Chart.getChart(canvasRef.current);
+    if (existing) existing.destroy();
+    new Chart(canvasRef.current, {
+      type:'bar',
+      data:{
+        labels: subjects.map(s=>s.subject.split(' ')[0]),
+        datasets:[{
+          label:'Attendance %',
+          data: subjects.map(s=>Math.round(s.present/s.total*100)),
+          backgroundColor: subjects.map(s => Math.round(s.present/s.total*100)<75?'rgba(239,68,68,0.7)':'rgba(108,99,255,0.7)'),
+          borderRadius:6, borderSkipped:false
+        }]
+      },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{y:{min:0,max:100,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#8b91a8',callback:v=>v+'%'}},x:{grid:{display:false},ticks:{color:'#8b91a8'}}}}
+    });
+  }, [subjects]);
+
+  return (
+    <div className="fade-in">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700}}>📊 Attendance Tracker</h2>
+        <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ Add Subject</button>
+      </div>
+
+      {low.length > 0 && (
+        <div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'var(--radius)',padding:14,marginBottom:20,display:'flex',gap:10,alignItems:'flex-start'}}>
+          <span style={{fontSize:20}}>⚠️</span>
+          <div>
+            <div style={{fontWeight:600,color:'var(--red)',marginBottom:3}}>Low Attendance Alert</div>
+            <div style={{fontSize:13,color:'var(--text2)'}}>
+              {low.map(s=>`${s.subject} (${Math.round(s.present/s.total*100)}%)`).join(' • ')} — below 75% threshold
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid-2" style={{marginBottom:20}}>
+        <div className="card">
+          <div className="card-title">📈 Attendance Chart</div>
+          <div style={{height:200}}>
+            <canvas ref={canvasRef}/>
+          </div>
+        </div>
+        {aiAdvice && (
+          <div className="card">
+            <div className="card-title">✦ AI Recovery Plan</div>
+            <div className="ai-box">
+              <div className="ai-label">Personalized advice</div>
+              {aiLoading ? <LoadingDots/> : <div className="ai-text">{aiAdvice}</div>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-title">🎓 Subjects</div>
+        {subjects.map(s => {
+          const pct = Math.round(s.present/s.total*100);
+          const col = pct<75?'var(--red)':pct<85?'var(--amber)':'var(--green)';
+          return (
+            <div key={s.id} className="attendance-row">
+              <div style={{flex:1}}>
+                <div className="attendance-subject">{s.subject}</div>
+                <div style={{fontSize:11,color:'var(--text2)',marginBottom:6}}>{s.present}/{s.total} classes • Need {Math.max(0,Math.ceil((0.75*s.total-s.present)/0.25))} more to reach 75%</div>
+                <div className="progress-wrap">
+                  <div className="progress-bar" style={{width:`${pct}%`,background:col}}/>
+                </div>
+              </div>
+              <div className="attendance-pct" style={{color:col,marginLeft:16}}>{pct}%</div>
+              <div className="attendance-actions">
+                <button className="btn btn-ghost btn-sm" onClick={()=>mark(s.id,'present')} style={{color:'var(--green)'}}>✓ Present</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>mark(s.id,'absent')} style={{color:'var(--red)'}}>✗ Absent</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowModal(false)}}>
+          <div className="modal">
+            <div className="modal-title">Add Subject</div>
+            {[{label:'Subject Name',key:'subject',type:'text',ph:'e.g. Algorithms'},{label:'Classes Attended',key:'present',type:'number',ph:'0'},{label:'Total Classes',key:'total',type:'number',ph:'0'}].map(f=>(
+              <div key={f.key} className="form-group">
+                <label className="label">{f.label}</label>
+                <input className="input" type={f.type} placeholder={f.ph} value={newSub[f.key]} onChange={e=>setNewSub({...newSub,[f.key]:f.type==='number'?+e.target.value:e.target.value})}/>
+              </div>
+            ))}
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={()=>{if(newSub.subject&&newSub.total>0){setSubjects([...subjects,{id:Date.now(),...newSub}]);setShowModal(false);setNewSub({subject:'',present:0,total:0});}}}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── ASSIGNMENTS ────
+function Assignments() {
+  const [items, setItems] = useState(initAssignments);
+  const [showModal, setShowModal] = useState(false);
+  const [filter, setFilter] = useState('All');
+  const [aiPlan, setAiPlan] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+  const [newA, setNewA] = useState({name:'',subject:'',deadline:'',priority:'Medium'});
+
+  const toggle = id => setItems(items.map(a => a.id===id ? {...a,done:!a.done} : a));
+  const del = id => setItems(items.filter(a=>a.id!==id));
+
+  const filtered = filter==='All' ? items : filter==='Done' ? items.filter(a=>a.done) : items.filter(a=>!a.done && a.priority===filter);
+
+  const getPriority = async () => {
+    setAiLoading(true);
+    const pending = items.filter(a=>!a.done);
+    const r = await callAI(
+      `I have these pending assignments: ${pending.map(a=>`${a.name} (${a.subject}, due ${a.deadline}, priority: ${a.priority})`).join('; ')}. Which should I work on first and why? Give me a brief prioritized action plan.`,
+      "You are a time management coach for students. Be specific and concise."
+    );
+    setAiPlan(r); setAiLoading(false);
+  };
+
+  const priorityColor = p => p==='High'?'badge-red':p==='Medium'?'badge-amber':'badge-green';
+
+  return (
+    <div className="fade-in">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700}}>⏰ Assignments</h2>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-ghost btn-sm" onClick={getPriority}>✦ AI Prioritize</button>
+          <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ Add</button>
+        </div>
+      </div>
+
+      <div className="tabs">
+        {['All','High','Medium','Low','Done'].map(f => (
+          <div key={f} className={`tab ${filter===f?'active':''}`} onClick={()=>setFilter(f)}>{f}</div>
+        ))}
+      </div>
+
+      {aiPlan && (
+        <div className="ai-box" style={{marginBottom:20}}>
+          <div className="ai-label">AI Priority Plan</div>
+          {aiLoading ? <LoadingDots/> : <div className="ai-text">{aiPlan}</div>}
+        </div>
+      )}
+
+      <div className="card">
+        {filtered.length === 0 && <div style={{textAlign:'center',color:'var(--text3)',padding:32}}>No assignments here 🎉</div>}
+        {filtered.map(a => {
+          const d = daysUntil(a.deadline);
+          const dCol = d<=2?'var(--red)':d<=5?'var(--amber)':'var(--text2)';
+          return (
+            <div key={a.id} className="assignment-item" style={{opacity:a.done?0.5:1}}>
+              <div className={`assignment-check ${a.done?'done':''}`} onClick={()=>toggle(a.id)}>
+                {a.done && <span style={{color:'#fff',fontSize:12}}>✓</span>}
+              </div>
+              <div style={{flex:1}}>
+                <div className="assignment-name" style={{textDecoration:a.done?'line-through':'none'}}>{a.name}</div>
+                <div className="assignment-meta">
+                  <span>{a.subject}</span>
+                  <span className={`badge ${priorityColor(a.priority)}`}>{a.priority}</span>
+                  <span style={{color:dCol,fontWeight:500}}>{a.done?'Done':d<=0?'Overdue!':d===1?'Due tomorrow':`Due in ${d}d`}</span>
+                </div>
+              </div>
+              <button className="btn btn-danger btn-sm" onClick={()=>del(a.id)}>✕</button>
+            </div>
+          );
+        })}
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowModal(false)}}>
+          <div className="modal">
+            <div className="modal-title">New Assignment</div>
+            <div className="form-group"><label className="label">Assignment Name</label><input className="input" placeholder="e.g. Lab Report" value={newA.name} onChange={e=>setNewA({...newA,name:e.target.value})}/></div>
+            <div className="form-group"><label className="label">Subject</label><input className="input" placeholder="e.g. PHY102" value={newA.subject} onChange={e=>setNewA({...newA,subject:e.target.value})}/></div>
+            <div className="form-group"><label className="label">Deadline</label><input className="input" type="date" value={newA.deadline} onChange={e=>setNewA({...newA,deadline:e.target.value})}/></div>
+            <div className="form-group">
+              <label className="label">Priority</label>
+              <select className="input" value={newA.priority} onChange={e=>setNewA({...newA,priority:e.target.value})}>
+                {['High','Medium','Low'].map(p=><option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={()=>{if(newA.name&&newA.deadline){setItems([{id:Date.now(),...newA,done:false},...items]);setShowModal(false);setNewA({name:'',subject:'',deadline:'',priority:'Medium'});}}}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── STUDY PLANNER ────
+function Planner({ assignments }) {
+  const [plan, setPlan] = useState(""); const [loading, setLoading] = useState(false);
+  const [planType, setPlanType] = useState('daily');
+  const [chat, setChat] = useState([]); const [msg, setMsg] = useState(""); const [chatLoading, setChatLoading] = useState(false);
+
+  const generate = async () => {
+    setLoading(true); setPlan("");
+    const pending = assignments.filter(a=>!a.done);
+    const r = await callAI(
+      `Create a ${planType} study plan for a college student. Pending assignments: ${pending.map(a=>`${a.name} (${a.subject}, due ${a.deadline}, ${a.priority} priority)`).join('; ')}. Include time blocks, breaks, and specific tasks. Format it clearly with time slots.`,
+      "You are an expert study planner. Create realistic, efficient schedules with Pomodoro-style time blocks."
+    );
+    setPlan(r); setLoading(false);
+  };
+
+  const sendChat = async () => {
+    if (!msg.trim()) return;
+    const userMsg = msg; setMsg("");
+    const newChat = [...chat, {role:'user',content:userMsg}];
+    setChat(newChat); setChatLoading(true);
+    const r = await callAI(
+      `Student question: ${userMsg}\n\nContext: They have these pending assignments: ${assignments.filter(a=>!a.done).map(a=>a.name).join(', ')}`,
+      "You are a helpful AI study buddy for college students. Be supportive, practical and concise."
+    );
+    setChat([...newChat, {role:'assistant',content:r}]); setChatLoading(false);
+  };
+
+  return (
+    <div className="fade-in">
+      <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700,marginBottom:20}}>🤖 AI Study Planner</h2>
+
+      <div className="grid-2">
+        <div>
+          <div className="card" style={{marginBottom:16}}>
+            <div className="card-title">Generate Study Plan</div>
+            <div className="tabs">
+              {['daily','weekly'].map(t=><div key={t} className={`tab ${planType===t?'active':''}`} onClick={()=>setPlanType(t)} style={{textTransform:'capitalize'}}>{t}</div>)}
+            </div>
+            <button className="btn btn-primary" style={{width:'100%'}} onClick={generate}>
+              {loading ? 'Generating…' : `✦ Generate ${planType.charAt(0).toUpperCase()+planType.slice(1)} Plan`}
+            </button>
+            {loading && <div style={{textAlign:'center',marginTop:16}}><LoadingDots/></div>}
+            {plan && (
+              <div className="ai-box" style={{marginTop:16}}>
+                <div className="ai-label">Your {planType} plan</div>
+                <div className="ai-text" style={{maxHeight:300,overflowY:'auto'}}>{plan}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">💬 AI Study Assistant</div>
+          <div style={{height:280,overflowY:'auto',marginBottom:12,display:'flex',flexDirection:'column',gap:10}}>
+            {chat.length===0 && (
+              <div style={{textAlign:'center',color:'var(--text3)',fontSize:13,marginTop:60}}>
+                Ask me anything about studying, schedules, or your assignments!
+              </div>
+            )}
+            {chat.map((m,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start'}}>
+                <div style={{maxWidth:'80%',padding:'9px 13px',borderRadius:12,background:m.role==='user'?'var(--accent)':'var(--bg3)',color:m.role==='user'?'#fff':'var(--text)',fontSize:13,lineHeight:1.6}}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && <div style={{alignSelf:'flex-start',background:'var(--bg3)',padding:'9px 13px',borderRadius:12}}><LoadingDots/></div>}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <input className="input" placeholder="Ask the AI…" value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendChat()}/>
+            <button className="btn btn-primary" onClick={sendChat}>Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──── SCHEDULE ────
+function Schedule() {
+  const [items, setItems] = useState(initSchedule);
+  const [showModal, setShowModal] = useState(false);
+  const [newItem, setNewItem] = useState({time:'09:00',label:'',color:'var(--accent)',type:'class',room:''});
+
+  const typeColors = {class:'var(--accent)',personal:'var(--green)',study:'var(--teal)',gym:'var(--pink)'};
+
+  return (
+    <div className="fade-in">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700}}>🗓️ Daily Schedule</h2>
+        <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ Add Event</button>
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-title">Today — {today.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div>
+          {[...items].sort((a,b)=>a.time.localeCompare(b.time)).map((s,i) => (
+            <div key={i} className="schedule-item">
+              <div className="schedule-time">{s.time}</div>
+              <div className="schedule-dot" style={{background:typeColors[s.type]||s.color}}/>
+              <div>
+                <div className="schedule-event">{s.label}</div>
+                {s.room && <div className="schedule-sub">📍 {s.room}</div>}
+                <span className="badge badge-purple" style={{marginTop:4}}>{s.type}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card">
+          <div className="card-title">📊 Time Distribution</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:8}}>
+            {['class','study','personal','gym'].map(type => {
+              const count = items.filter(s=>s.type===type).length;
+              const pct = Math.round(count/items.length*100);
+              const col = typeColors[type];
+              return (
+                <div key={type}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                    <span style={{color:'var(--text2)',textTransform:'capitalize'}}>{type}</span>
+                    <span style={{fontWeight:600}}>{count} slots</span>
+                  </div>
+                  <div className="progress-wrap">
+                    <div className="progress-bar" style={{width:`${pct}%`,background:col}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{marginTop:20,padding:12,background:'var(--bg3)',borderRadius:'var(--radius-sm)',fontSize:13,color:'var(--text2)'}}>
+            💡 You have <strong style={{color:'var(--text)'}}>2 free slots</strong> today — perfect for getting ahead on assignments!
+          </div>
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowModal(false)}}>
+          <div className="modal">
+            <div className="modal-title">New Schedule Event</div>
+            <div className="form-group"><label className="label">Time</label><input className="input" type="time" value={newItem.time} onChange={e=>setNewItem({...newItem,time:e.target.value})}/></div>
+            <div className="form-group"><label className="label">Event Name</label><input className="input" placeholder="e.g. Physics Lecture" value={newItem.label} onChange={e=>setNewItem({...newItem,label:e.target.value})}/></div>
+            <div className="form-group">
+              <label className="label">Type</label>
+              <select className="input" value={newItem.type} onChange={e=>setNewItem({...newItem,type:e.target.value})}>
+                {['class','study','personal','gym'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="label">Room / Location (optional)</label><input className="input" placeholder="e.g. Room 201" value={newItem.room} onChange={e=>setNewItem({...newItem,room:e.target.value})}/></div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={()=>{if(newItem.label){setItems([...items,newItem]);setShowModal(false);setNewItem({time:'09:00',label:'',color:'var(--accent)',type:'class',room:''});}}}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── CALENDAR ────
+function CalendarView() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [events] = useState([
+    {date:new Date(2025,6,8),label:'DS Assignment Due',color:'var(--red)'},
+    {date:new Date(2025,6,12),label:'Eco Essay',color:'var(--amber)'},
+    {date:new Date(2025,6,15),label:'Math Exam',color:'var(--pink)'},
+    {date:new Date(2025,6,20),label:'Physics Viva',color:'var(--accent)'},
+    {date:new Date(2025,6,25),label:'Project Submission',color:'var(--green)'},
+  ]);
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const days = [];
+  for (let i=0; i<firstDay; i++) days.push(null);
+  for (let d=1; d<=daysInMonth; d++) days.push(d);
+
+  const monthName = currentDate.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  const isToday = d => d && today.getDate()===d && today.getMonth()===month && today.getFullYear()===year;
+  const eventsOn = d => events.filter(e => e.date.getDate()===d && e.date.getMonth()===month);
+
+  return (
+    <div className="fade-in">
+      <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700,marginBottom:20}}>📅 Monthly Timetable</h2>
+
+      <div className="grid-2">
+        <div className="card">
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setCurrentDate(new Date(year,month-1,1))}>◀</button>
+            <div style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:16}}>{monthName}</div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setCurrentDate(new Date(year,month+1,1))}>▶</button>
+          </div>
+          <div className="cal-grid">
+            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=><div key={d} className="cal-day-header">{d}</div>)}
+            {days.map((d,i) => (
+              <div key={i} className={`cal-cell ${isToday(d)?'active':''} ${!d?'':''}`} style={{position:'relative'}}>
+                {d && <span>{d}</span>}
+                {d && eventsOn(d).map((ev,j)=>(
+                  <div key={j} className="cal-event-dot" style={{background:ev.color}}/>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">📌 Events this Month</div>
+          {events.filter(e=>e.date.getMonth()===month).map((ev,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid var(--border)'}}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:ev.color,flexShrink:0}}/>
+              <div>
+                <div style={{fontSize:13.5,fontWeight:500}}>{ev.label}</div>
+                <div style={{fontSize:12,color:'var(--text2)'}}>{ev.date.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}</div>
+              </div>
+              <div style={{marginLeft:'auto',fontSize:12,fontWeight:600,color:ev.color}}>
+                {daysUntil(ev.date)<=0?'Today':daysUntil(ev.date)===1?'Tomorrow':`In ${daysUntil(ev.date)}d`}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──── FINANCE ────
+function Finance() {
+  const [expenses, setExpenses] = useState(initExpenses);
+  const [budget] = useState(5000);
+  const [showModal, setShowModal] = useState(false);
+  const [newExp, setNewExp] = useState({name:'',cat:'Food',amount:''});
+  const [aiTip, setAiTip] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+
+  const total = expenses.reduce((s,e)=>s+e.amount,0);
+  const pct = Math.round(total/budget*100);
+  const canvasRef = useRef(null);
+
+  useEffect(()=>{
+    if(!canvasRef.current) return;
+    const ex = Chart.getChart(canvasRef.current);
+    if(ex) ex.destroy();
+    const cats = {};
+    expenses.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+e.amount;});
+    new Chart(canvasRef.current,{
+      type:'doughnut',
+      data:{
+        labels:Object.keys(cats),
+        datasets:[{data:Object.values(cats),backgroundColor:['#6c63ff','#3b82f6','#22c55e','#f59e0b','#ec4899'],borderWidth:0,hoverOffset:4}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false}}}
+    });
+  },[expenses]);
+
+  const getAiAdvice = async () => {
+    setAiLoading(true);
+    const cats = {};
+    expenses.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+e.amount;});
+    const r = await callAI(
+      `My monthly budget is ₹${budget}. I've spent ₹${total} so far (${pct}% of budget). Breakdown: ${Object.entries(cats).map(([k,v])=>`${k}: ₹${v}`).join(', ')}. Give me 3 specific savings tips and warn me about overspending categories.`,
+      "You are a personal finance advisor for college students in India. Be practical and specific."
+    );
+    setAiTip(r); setAiLoading(false);
+  };
+
+  const catIcons = {Food:'🍱',Travel:'🚇',Education:'📗',Entertainment:'🎬',Shopping:'🛍️',Other:'💸'};
+
+  return (
+    <div className="fade-in">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700}}>💰 Finance Tracker</h2>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-ghost btn-sm" onClick={getAiAdvice}>✦ AI Tips</button>
+          <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ Add Expense</button>
+        </div>
+      </div>
+
+      <div className="grid-4" style={{marginBottom:20}}>
+        {[
+          {label:'Monthly Budget',value:`₹${budget.toLocaleString()}`,color:'var(--blue)',bg:'var(--blue-bg)',icon:'💼'},
+          {label:'Total Spent',value:`₹${total.toLocaleString()}`,color:'var(--accent)',bg:'rgba(108,99,255,0.12)',icon:'💳'},
+          {label:'Remaining',value:`₹${(budget-total).toLocaleString()}`,color:'var(--green)',bg:'var(--green-bg)',icon:'🏦'},
+          {label:'% Used',value:`${pct}%`,color:pct>90?'var(--red)':pct>70?'var(--amber)':'var(--green)',bg:'var(--bg3)',icon:'📊'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon" style={{background:s.bg,fontSize:22}}>{s.icon}</div>
+            <div><div className="stat-label">{s.label}</div><div className="stat-value" style={{fontSize:18,color:s.color}}>{s.value}</div></div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{marginBottom:20}}>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:6}}>
+          <span style={{color:'var(--text2)'}}>Budget used</span>
+          <span style={{fontWeight:600,color:pct>90?'var(--red)':pct>70?'var(--amber)':'var(--green)'}}>{pct}%</span>
+        </div>
+        <div className="progress-wrap" style={{height:10}}>
+          <div className="progress-bar" style={{width:`${Math.min(pct,100)}%`,background:pct>90?'var(--red)':pct>70?'var(--amber)':'var(--accent)'}}/>
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-title">🥧 Spending Breakdown</div>
+          <div style={{height:180}}><canvas ref={canvasRef}/></div>
+        </div>
+        <div className="card">
+          {aiTip ? (
+            <>
+              <div className="card-title">✦ AI Savings Tips</div>
+              <div className="ai-box">
+                <div className="ai-label">Personalized advice</div>
+                {aiLoading?<LoadingDots/>:<div className="ai-text">{aiTip}</div>}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="card-title">📋 Recent Transactions</div>
+              {expenses.slice(0,4).map(e=>(
+                <div key={e.id} className="expense-row">
+                  <div className="expense-icon" style={{background:e.color}}>{e.icon}</div>
+                  <div><div className="expense-name">{e.name}</div><div className="expense-cat">{e.cat} • {e.date}</div></div>
+                  <div className="expense-amount">₹{e.amount}</div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowModal(false)}}>
+          <div className="modal">
+            <div className="modal-title">Add Expense</div>
+            <div className="form-group"><label className="label">Description</label><input className="input" placeholder="e.g. Canteen lunch" value={newExp.name} onChange={e=>setNewExp({...newExp,name:e.target.value})}/></div>
+            <div className="form-group">
+              <label className="label">Category</label>
+              <select className="input" value={newExp.cat} onChange={e=>setNewExp({...newExp,cat:e.target.value})}>
+                {['Food','Travel','Education','Entertainment','Shopping','Other'].map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="label">Amount (₹)</label><input className="input" type="number" placeholder="0" value={newExp.amount} onChange={e=>setNewExp({...newExp,amount:+e.target.value})}/></div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn btn-ghost" onClick={()=>setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={()=>{if(newExp.name&&newExp.amount>0){setExpenses([{id:Date.now(),...newExp,icon:catIcons[newExp.cat]||'💸',color:'var(--amber-bg)',date:'Today'},...expenses]);setShowModal(false);setNewExp({name:'',cat:'Food',amount:''});}}}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──── NOTIFICATIONS ────
+function Notifications({ assignments, attendance }) {
+  const pending = assignments.filter(a=>!a.done&&daysUntil(a.deadline)<=3);
+  const lowAtt = attendance.filter(a=>a.present/a.total*100<75);
+  const [aiDigest, setAiDigest] = useState(""); const [aiLoading, setAiLoading] = useState(false);
+
+  const getDigest = async () => {
+    setAiLoading(true);
+    const r = await callAI(
+      `Generate a motivating daily digest for a college student. They have ${pending.length} urgent deadlines, ${lowAtt.length} subjects with low attendance, and a 7-day study streak. Make it encouraging, practical, and under 100 words.`,
+      "You are a supportive AI academic coach. Be warm, concise, and action-oriented."
+    );
+    setAiDigest(r); setAiLoading(false);
+  };
+
+  const notifs = [
+    ...pending.map(a=>({icon:'⏰',title:`Assignment due soon: ${a.name}`,body:`${a.subject} — due in ${daysUntil(a.deadline)} day(s)`,time:'Just now',color:'var(--red-bg)',iconColor:'var(--red)'})),
+    ...lowAtt.map(a=>({icon:'📊',title:`Low attendance: ${a.subject}`,body:`Your attendance is ${Math.round(a.present/a.total*100)}% — below the 75% threshold`,time:'Today',color:'var(--amber-bg)',iconColor:'var(--amber)'})),
+    {icon:'🔥',title:'Study streak: 7 days!',body:"You've studied 7 days in a row. Keep it up — you're in the top 15% of your batch!",time:'This week',color:'var(--pink-bg)',iconColor:'var(--pink)'},
+    {icon:'💡',title:'Study tip',body:"You have 3 deadlines this week. Focus on Data Structures first — it has the highest priority.",time:'AI suggestion',color:'rgba(108,99,255,0.12)',iconColor:'var(--accent)'},
+  ];
+
+  return (
+    <div className="fade-in">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700}}>🔔 Notifications</h2>
+        <button className="btn btn-ghost btn-sm" onClick={getDigest}>✦ AI Daily Digest</button>
+      </div>
+
+      {aiDigest && (
+        <div className="ai-box" style={{marginBottom:20}}>
+          <div className="ai-label">Your AI daily digest</div>
+          {aiLoading?<LoadingDots/>:<div className="ai-text">{aiDigest}</div>}
+        </div>
+      )}
+
+      {notifs.map((n,i)=>(
+        <div key={i} className="notif-item">
+          <div className="notif-icon-wrap" style={{background:n.color}}>
+            <span style={{fontSize:18}}>{n.icon}</span>
+          </div>
+          <div>
+            <div className="notif-title">{n.title}</div>
+            <div className="notif-body">{n.body}</div>
+            <div className="notif-time">{n.time}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ──── APP ────
+const NAV = [
+  {id:'dashboard',icon:'⊞',label:'Dashboard'},
+  {id:'notes',icon:'📚',label:'Notes'},
+  {id:'attendance',icon:'📊',label:'Attendance'},
+  {id:'assignments',icon:'⏰',label:'Assignments'},
+  {id:'planner',icon:'🤖',label:'AI Planner'},
+  {id:'schedule',icon:'🗓️',label:'Schedule'},
+  {id:'calendar',icon:'📅',label:'Calendar'},
+  {id:'finance',icon:'💰',label:'Finance'},
+  {id:'notifications',icon:'🔔',label:'Notifications'},
+];
+
+const PAGE_TITLES = {dashboard:'Dashboard',notes:'Smart Notes',attendance:'Attendance Tracker',assignments:'Assignments',planner:'AI Study Planner',schedule:'Daily Schedule',calendar:'Monthly Calendar',finance:'Finance Tracker',notifications:'Notifications'};
+
+function App() {
+  const [page, setPage] = useState('dashboard');
+  const [dark, setDark] = useState(true);
+  const [assignments, setAssignments] = useState(initAssignments);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(()=>{
+    document.body.className = dark ? '' : 'light';
+  },[dark]);
+
+  const pendingCount = assignments.filter(a=>!a.done&&daysUntil(a.deadline)<=3).length;
+
+  return (
+    <>
+      {/* Sidebar */}
+      <div className={`sidebar ${sidebarOpen?'open':''}`}>
+        <div className="sidebar-logo">
+          <div className="logo-icon">🎓</div>
+          <div><div className="logo-text">AI College</div><div className="logo-sub">Helper</div></div>
+        </div>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Main</div>
+          {NAV.slice(0,1).map(n=>(
+            <div key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={()=>{setPage(n.id);setSidebarOpen(false);}}>
+              <span className="nav-icon">{n.icon}</span>{n.label}
+            </div>
+          ))}
+        </div>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Academic</div>
+          {NAV.slice(1,6).map(n=>(
+            <div key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={()=>{setPage(n.id);setSidebarOpen(false);}}>
+              <span className="nav-icon">{n.icon}</span>{n.label}
+              {n.id==='assignments'&&pendingCount>0&&<span className="nav-badge">{pendingCount}</span>}
+            </div>
+          ))}
+        </div>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Life</div>
+          {NAV.slice(6).map(n=>(
+            <div key={n.id} className={`nav-item ${page===n.id?'active':''}`} onClick={()=>{setPage(n.id);setSidebarOpen(false);}}>
+              <span className="nav-icon">{n.icon}</span>{n.label}
+              {n.id==='notifications'&&<span className="nav-badge">{pendingCount+2}</span>}
+            </div>
+          ))}
+        </div>
+        <div className="sidebar-footer">
+          <div className="theme-toggle" onClick={()=>setDark(!dark)}>
+            <span style={{fontSize:13}}>{dark?'🌙 Dark mode':'☀️ Light mode'}</span>
+            <div className={`toggle-switch ${dark?'on':''}`}><div className="toggle-knob"/></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div className="main">
+        <div className="topbar">
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <button className="notif-btn" style={{display:'none'}} onClick={()=>setSidebarOpen(!sidebarOpen)}>☰</button>
+            <div className="topbar-title">{PAGE_TITLES[page]}</div>
+          </div>
+          <div className="topbar-right">
+            <div className="notif-btn" onClick={()=>setPage('notifications')}>🔔<div className="notif-dot"/></div>
+            <div className="topbar-avatar">AR</div>
+          </div>
+        </div>
+
+        <div className="content">
+          {page==='dashboard' && <Dashboard assignments={assignments} attendance={initAttendance} notifications={[]}/>}
+          {page==='notes' && <Notes/>}
+          {page==='attendance' && <Attendance/>}
+          {page==='assignments' && <Assignments/>}
+          {page==='planner' && <Planner assignments={assignments}/>}
+          {page==='schedule' && <Schedule/>}
+          {page==='calendar' && <CalendarView/>}
+          {page==='finance' && <Finance/>}
+          {page==='notifications' && <Notifications assignments={assignments} attendance={initAttendance}/>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
